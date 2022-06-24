@@ -1,4 +1,6 @@
+#include "cs/SIG.hpp"
 #include "headers/Particle.hpp"
+#include "geometry/Universe.hpp"
 #include "geometry/Plane.hpp"
 
 #include <alpaka/alpaka.hpp>
@@ -89,7 +91,6 @@ auto main() -> int
         alpaka::GridBlockExtentSubDivRestrictions::Unrestricted)};
 
 
-    ///
     constexpr size_t number_particles = 100u;
     BufHostParticles bufHostParticles{alpaka::allocBuf<mxmc::Particle, Idx>(devHost, number_particles)};
     mxmc::Particle* const ptrBufHostParticles{alpaka::getPtrNative(bufHostParticles)};
@@ -97,7 +98,6 @@ auto main() -> int
     BufAccParticles bufAccParticles{alpaka::allocBuf<mxmc::Particle, Idx>(devAcc, number_particles)};
     mxmc::Particle* const ptrBufAccParticles{alpaka::getPtrNative(bufAccParticles)};
 
-    ///
 
     simpleParticlesInitialisation(ptrBufHostParticles, number_particles);
     alpaka::memcpy(queue, bufAccParticles, bufHostParticles);
