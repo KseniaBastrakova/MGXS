@@ -1,4 +1,5 @@
 #pragma once
+
 #include <alpaka/alpaka.hpp>
 #include <alpaka/example/ExampleDefaultAcc.hpp>
 namespace mxmc{
