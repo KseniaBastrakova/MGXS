@@ -6,137 +6,149 @@ namespace mxmc{
 
 using Idx = std::size_t;
 
-template<typename TBuf>
 struct SIG{
+
+	using Data = double;
+
 	SIG(){}
 
-	auto set_pointers(TBuf sig_f_,
-			TBuf capture_,
-			TBuf scattering_,
-			TBuf total_,
-			TBuf number_production_neutrons_,
-			TBuf cs_virtual_)
+	auto set_fission(double fission_)
 	{
-		sig_f = sig_f_;
-		capture = capture_;
-		scattering = scattering_;
-		total = total_;
-		number_production_neutrons = number_production_neutrons_;
-		cs_virtual = cs_virtual_;
+		fission = fission_;
 	}
 
-	TBuf sig_f;
-	TBuf capture;
-	TBuf scattering;
-	TBuf total;
-	TBuf number_production_neutrons;
+	auto set_capture(double capture_)
+	{
+		 capture = capture_;
+	}
 
-	TBuf cs_virtual;
+	auto set_scattering(double scattering_)
+	{
+		scattering = scattering_;
+	}
+
+	auto set_total(double total_)
+	{
+		total = total_;
+	}
+
+	auto set_number_production_neutrons(double number_production_neutrons_)
+	{
+		number_production_neutrons = number_production_neutrons_;
+	}
+
+	ALPAKA_FN_ACC
+	auto get_fission()
+	{
+		return fission;
+	}
+
+	ALPAKA_FN_ACC
+	auto get_capture()
+	{
+		return capture;
+	}
+
+	ALPAKA_FN_ACC
+	auto get_scattering()
+	{
+		return scattering;
+	}
+
+	ALPAKA_FN_ACC
+	auto get_total()
+	{
+		return total;
+	}
+
+	ALPAKA_FN_ACC
+	auto get_number_production_neutrons()
+	{
+		return number_production_neutrons;
+	}
+
+	ALPAKA_FN_ACC
+	auto get_fission_probability()
+	{
+		return fission / total;
+	}
+
+	ALPAKA_FN_ACC
+	auto get_capture_probability()
+	{
+		return capture / total;
+	}
+
+	ALPAKA_FN_ACC
+	auto get_scatter_probability()
+	{
+		return scattering / total;
+	}
+
+	double fission;
+    double capture;
+    double scattering;
+    double total;
+    double number_production_neutrons;
+    double cs_virtual;
 };
 
-template<typename TBuf>
-using SIG_type = SIG<TBuf>;
 
-template<typename TAcc>
+
+template<typename TBufAcc, typename TBufHost>
 struct SIG_storage{
-	SIG_storage(Idx number_groups):
-		number_groups(number_groups){}
+	SIG_storage(Idx number_groups, TBufAcc dev_acc, TBufHost dev_host):
+		number_groups(number_groups),
+		SIG_host(alpaka::allocBuf<SIG, Idx>(dev_host, number_groups)),
+		SIG_device(alpaka::allocBuf<SIG, Idx>(dev_acc, number_groups))
+	{
 
-	using Dim = alpaka::DimInt<1>;
-	using Host = alpaka::DevCpu;
+	}
+
+    using Dim = alpaka::DimInt<1>;
+    using Vec = alpaka::Vec<Dim, Idx>;
+    using Host = alpaka::DevCpu;
+    using Acc = alpaka::AccCpuSerial<Dim, Idx>;
 	using Data = double;
-	using Buf_host_double = alpaka::Buf<Host, Data, Dim, Idx>;
-	using Buf_acc_double = alpaka::Buf<TAcc, Data, Dim, Idx>;
+	using Buf_host_double = alpaka::Buf<Host, SIG, Dim, Idx>;
+	using Buf_acc_double = alpaka::Buf<Acc, SIG, Dim, Idx>;
 
-	auto allocate_memory_host()
+	template<typename TQueueAcc>
+	auto copy_from_host_to_device(TQueueAcc queue)
 	{
-		auto const dev_host = alpaka::getDevByIdx<Host>(0u);
-
-		Buf_host_double sig_f_host {alpaka::allocBuf<Data, Idx>(dev_host, number_groups)};
-		SIG_host.sig_f = sig_f_host;
-
-		Buf_host_double capture_host {alpaka::allocBuf<Data, Idx>(dev_host, number_groups)};
-		SIG_host.capture = capture_host;
-
-		Buf_host_double scattering_host {alpaka::allocBuf<Data, Idx>(dev_host, number_groups)};
-		SIG_host.scattering = scattering_host;
-
-		Buf_host_double total_host {alpaka::allocBuf<Data, Idx>(dev_host, number_groups)};
-		SIG_host.total = total_host;
-
-		Buf_host_double number_production_neutrons_host {alpaka::allocBuf<Data, Idx>(dev_host, number_groups)};
-		SIG_host.number_production_neutrons = number_production_neutrons_host;
-
-		Buf_host_double cs_virtual_host {alpaka::allocBuf<Data, Idx>(dev_host, number_groups)};
-		SIG_host.cs_virtual = cs_virtual_host;
-	}
-
-	auto allocate_memory_device()
-	{
-		auto const dev_acc = alpaka::getDevByIdx<TAcc>(0u);
-
-		Buf_acc_double sig_f_acc {alpaka::allocBuf<Data, Idx>(dev_acc, number_groups)};
-		SIG_device.sig_f = sig_f_acc;
-
-		Buf_acc_double capture_acc {alpaka::allocBuf<Data, Idx>(dev_acc, number_groups)};
-		SIG_device.capture = capture_acc;
-
-		Buf_acc_double scattering_acc {alpaka::allocBuf<Data, Idx>(dev_acc, number_groups)};
-		SIG_device.scattering = scattering_acc;
-
-		Buf_acc_double total_acc {alpaka::allocBuf<Data, Idx>(dev_acc, number_groups)};
-		SIG_device.total = total_acc;
-
-		Buf_acc_double number_production_neutrons_acc {alpaka::allocBuf<Data, Idx>(dev_acc, number_groups)};
-		SIG_device.number_production_neutrons = number_production_neutrons_acc;
-
-		Buf_acc_double cs_virtual_acc {alpaka::allocBuf<Data, Idx>(dev_acc, number_groups)};
-		SIG_device.cs_virtual = cs_virtual_acc;
-
+		alpaka::memcpy(queue, SIG_device, SIG_host);
 	}
 
 	template<typename TQueueAcc>
-	auto copy_from_host_to_device(const TQueueAcc& queue)
+	auto copy_from_device_to_host(TQueueAcc queue)
 	{
-		alpaka::memcpy(queue, SIG_device.sig_f, SIG_host.sig_f);
-		alpaka::memcpy(queue, SIG_device.capture, SIG_host.capture);
-		alpaka::memcpy(queue, SIG_device.scattering, SIG_host.scattering);
-		alpaka::memcpy(queue, SIG_device.total, SIG_host.total);
-		alpaka::memcpy(queue, SIG_device.number_production_neutrons, SIG_host.number_production_neutrons);
-		alpaka::memcpy(queue, SIG_device.cs_virtual, SIG_host.cs_virtual);
-
-	}
-
-	template<typename TQueueAcc>
-	auto copy_from_device_to_host(const TQueueAcc& queue)
-	{
-		alpaka::memcpy(queue, SIG_host.sig_f, SIG_device.sig_f);
-		alpaka::memcpy(queue, SIG_host.capture, SIG_device.capture);
-		alpaka::memcpy(queue, SIG_host.scattering, SIG_device.scattering);
-		alpaka::memcpy(queue, SIG_host.total, SIG_device.total);
-		alpaka::memcpy(queue, SIG_host.number_production_neutrons, SIG_device.number_production_neutrons);
-		alpaka::memcpy(queue, SIG_host.cs_virtual, SIG_device.cs_virtual);
+		alpaka::memcpy(queue, SIG_host, SIG_device);
 	}
 
 	auto get_pointer_host()
 	{
-		return SIG_host;
+		SIG* const ptr_buf_host{alpaka::getPtrNative(SIG_host)};
+		return ptr_buf_host;
 	}
 
 	auto get_pointer_device()
 	{
-		return SIG_device;
+		SIG* const ptr_buf_acc{alpaka::getPtrNative(SIG_device)};
+		return ptr_buf_acc;
 	}
 
 
 private:
 
 	Idx number_groups;
-	SIG_type<Buf_host_double> SIG_host;
-	SIG_type<Buf_acc_double> SIG_device;
+	Buf_host_double SIG_host;
+	Buf_acc_double SIG_device;
 };
 
+
 }
+
+
 
 /*
 class Sig:
